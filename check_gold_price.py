@@ -12,6 +12,7 @@ import re
 import sys
 
 import requests
+from bs4 import BeautifulSoup
 
 URL = "https://www.goodreturns.in/gold-rates/bangalore.html"
 STATE_FILE = "last_price.txt"
@@ -27,20 +28,28 @@ HEADERS = {
 def get_current_price() -> int:
     resp = requests.get(URL, headers=HEADERS, timeout=20)
     resp.raise_for_status()
-    text = resp.text
 
-    # Primary pattern: "...per gram for 22 karat gold (91.6% purity)..."
-    # preceded by "Rs.XX,XXX" earlier in the same sentence.
+    # Parse with BeautifulSoup and pull out clean text rather than
+    # regexing the raw HTML — the raw markup often has tags (e.g.
+    # <strong>) sitting between the ₹ symbol and the digits, which
+    # breaks a naive regex against resp.text directly.
+    soup = BeautifulSoup(resp.text, "html.parser")
+    text = soup.get_text(separator=" ")
+    text = re.sub(r"\s+", " ", text)
+
+    # Primary pattern: "...stands at Rs.X per gram for 24 karat gold
+    # (99.9% purity), Rs.Y per gram for 22 karat gold (91.6% purity)..."
     m = re.search(r"₹\s*([\d,]+)\s*per gram for 22 karat gold", text)
 
     if not m:
         # Fallback: the "22K Gold /g" ticker widget near the top of the page.
-        m = re.search(r"22K\s*Gold\s*/?\s*g.*?₹\s*([\d,]+)", text, re.DOTALL)
+        m = re.search(r"22K\s*Gold\s*/?\s*g\s*₹\s*([\d,]+)", text)
 
     if not m:
         raise ValueError(
             "Could not find the 22K gold price on the page — "
-            "the site layout may have changed. Check the regex patterns."
+            "the site layout may have changed. Check the regex patterns. "
+            f"First 500 chars of extracted text: {text[:500]}"
         )
 
     return int(m.group(1).replace(",", ""))
