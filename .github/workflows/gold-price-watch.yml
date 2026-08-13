@@ -2,12 +2,15 @@ name: Gold Price Watcher
 
 on:
   schedule:
-    # Runs every 15 minutes. GitHub Actions cron is UTC and "best effort"
-    # (can slip a few minutes during high load) — that's fine here since
-    # we only ever message you when the price actually changes.
-    # If your repo is PUBLIC (unlimited free Actions minutes), you can
-    # safely change this to */5 for near-real-time checks.
-    - cron: "*/15 * * * *"
+    # Runs at :07, :22, :37, :52 past every hour (roughly every 15 minutes).
+    # Deliberately offset away from :00/:15/:30/:45 because that's when
+    # everyone else's cron jobs fire too, which is when GitHub's shared
+    # runners get backed up and delay/drop scheduled runs. Off-the-mark
+    # times get queued more reliably.
+    #
+    # GitHub Actions cron is UTC and always "best effort" — it can still
+    # slip by several minutes, and that's normal, not a sign of a bug.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch: {}   # lets you trigger a manual test run from the Actions tab
 
 permissions:
